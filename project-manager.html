@@ -496,6 +496,159 @@
   .flatpickr-day.flatpickr-disabled { color: var(--border) !important; }
   .cur-month, .cur-year { color: var(--text) !important; }
 
+  /* ===== INLINE COMMENTS ===== */
+  .comments-row td {
+    padding: 0 !important;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .comments-panel {
+    background: #13151f;
+    border-top: 1px solid var(--border);
+    padding: 16px 20px 20px 56px;
+    display: none;
+  }
+
+  .comments-panel.open { display: block; }
+
+  .comments-header {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--accent);
+    font-family: 'IBM Plex Mono', monospace;
+    margin-bottom: 14px;
+  }
+
+  .comment-list { margin-bottom: 14px; }
+
+  .comment-item {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 12px;
+    align-items: flex-start;
+  }
+
+  .comment-item:last-child { margin-bottom: 0; }
+
+  .comment-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #000;
+    font-weight: 700;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  .comment-bubble {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 0 8px 8px 8px;
+    padding: 10px 14px;
+    flex: 1;
+  }
+
+  .comment-meta {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 5px;
+  }
+
+  .comment-text {
+    font-size: 14px;
+    color: var(--text);
+    line-height: 1.5;
+  }
+
+  .comment-delete {
+    background: transparent;
+    border: none;
+    color: var(--border);
+    cursor: pointer;
+    font-size: 13px;
+    padding: 0 0 0 8px;
+    transition: color 0.2s;
+    flex-shrink: 0;
+    align-self: center;
+  }
+  .comment-delete:hover { color: var(--red); }
+
+  .comment-input-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+  }
+
+  .comment-input-row textarea {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 9px 12px;
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 14px;
+    outline: none;
+    resize: none;
+    height: 38px;
+    transition: border-color 0.2s, height 0.2s;
+    overflow: hidden;
+  }
+
+  .comment-input-row textarea:focus {
+    border-color: var(--accent);
+    height: 70px;
+  }
+
+  .comment-submit {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 6px;
+    padding: 9px 16px;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: 'IBM Plex Sans', sans-serif;
+    white-space: nowrap;
+    transition: opacity 0.2s;
+    height: 38px;
+  }
+  .comment-submit:hover { opacity: 0.85; }
+
+  .no-comments {
+    font-size: 13px;
+    color: var(--muted);
+    font-style: italic;
+    margin-bottom: 12px;
+  }
+
+  .comment-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    color: var(--muted);
+    cursor: pointer;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 4px 9px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    transition: all 0.2s;
+  }
+  .comment-toggle:hover, .comment-toggle.active {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
   @media (max-width: 1100px) {
     .summary-row { grid-template-columns: repeat(4, 1fr); }
   }
@@ -573,6 +726,7 @@
           <th>Started</th>
           <th>Due Date</th>
           <th>Progress</th>
+          <th>Comments</th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -772,7 +926,10 @@ function renderTasks() {
     const priorityLabel = {high:'HIGH',med:'MED',low:'LOW'}[t.priority]||'—';
     const histCount = (t.history||[]).length;
 
+    const commentCount = (t.comments||[]).length;
+
     const tr = document.createElement('tr');
+    tr.setAttribute('data-id', t.id);
     tr.innerHTML = `
       <td class="status-cell">
         <div class="traffic-light">
@@ -801,6 +958,11 @@ function renderTasks() {
         </div>
       </td>
       <td>
+        <button class="comment-toggle" id="ctoggle-${t.id}" onclick="toggleComments('${t.id}')">
+          💬 ${commentCount > 0 ? commentCount : 'Add'}
+        </button>
+      </td>
+      <td>
         <div class="row-actions">
           <button class="icon-btn" onclick="editTask('${t.id}')">✏️</button>
           <button class="icon-btn delete" onclick="deleteTask('${t.id}')">🗑</button>
@@ -808,6 +970,13 @@ function renderTasks() {
       </td>
     `;
     tbody.appendChild(tr);
+
+    // Inline comments row
+    const commentsTr = document.createElement('tr');
+    commentsTr.classList.add('comments-row');
+    commentsTr.setAttribute('data-comments-for', t.id);
+    commentsTr.innerHTML = `<td colspan="9"><div class="comments-panel" id="cpanel-${t.id}">${buildCommentsPanel(t)}</div></td>`;
+    tbody.appendChild(commentsTr);
   });
 
   updateCounts();
@@ -1038,6 +1207,88 @@ function updateClock() {
 }
 setInterval(updateClock, 1000);
 updateClock();
+
+// ─── Comments ─────────────────────────────────────────────
+function buildCommentsPanel(t) {
+  const comments = t.comments || [];
+  const listHtml = comments.length === 0
+    ? '<div class="no-comments">No comments yet.</div>'
+    : '<div class="comment-list">' + comments.map((c, i) => `
+        <div class="comment-item">
+          <div class="comment-avatar">JD</div>
+          <div class="comment-bubble">
+            <div class="comment-meta">${formatCommentDate(c.date)}</div>
+            <div class="comment-text">${escHtml(c.text)}</div>
+          </div>
+          <button class="comment-delete" onclick="deleteComment('${t.id}', ${i})" title="Delete comment">✕</button>
+        </div>`).join('') + '</div>';
+
+  return `
+    <div class="comments-header">💬 Comments</div>
+    ${listHtml}
+    <div class="comment-input-row">
+      <textarea id="cinput-${t.id}" placeholder="Add a comment…"
+        onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();submitComment('${t.id}');}"></textarea>
+      <button class="comment-submit" onclick="submitComment('${t.id}')">Post</button>
+    </div>`;
+}
+
+function formatCommentDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) +
+    ' · ' + d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+}
+
+function toggleComments(id) {
+  const panel = document.getElementById('cpanel-' + id);
+  const btn   = document.getElementById('ctoggle-' + id);
+  const isOpen = panel.classList.toggle('open');
+  btn.classList.toggle('active', isOpen);
+  if (isOpen) {
+    setTimeout(() => {
+      const inp = document.getElementById('cinput-' + id);
+      if (inp) inp.focus();
+    }, 50);
+  }
+}
+
+function submitComment(id) {
+  const inp = document.getElementById('cinput-' + id);
+  if (!inp) return;
+  const text = inp.value.trim();
+  if (!text) return;
+
+  const t = tasks.find(t => t.id === id);
+  if (!t) return;
+  if (!t.comments) t.comments = [];
+  t.comments.push({ date: new Date().toISOString(), text });
+
+  localStorage.setItem('dg-tasks', JSON.stringify(tasks));
+
+  // Rebuild just the panel content
+  const panel = document.getElementById('cpanel-' + id);
+  panel.innerHTML = buildCommentsPanel(t);
+  panel.classList.add('open');
+
+  // Update comment count on toggle button
+  const btn = document.getElementById('ctoggle-' + id);
+  if (btn) btn.innerHTML = `💬 ${t.comments.length}`;
+}
+
+function deleteComment(taskId, commentIndex) {
+  if (!confirm('Delete this comment?')) return;
+  const t = tasks.find(t => t.id === taskId);
+  if (!t || !t.comments) return;
+  t.comments.splice(commentIndex, 1);
+  localStorage.setItem('dg-tasks', JSON.stringify(tasks));
+
+  const panel = document.getElementById('cpanel-' + taskId);
+  panel.innerHTML = buildCommentsPanel(t);
+  panel.classList.add('open');
+
+  const btn = document.getElementById('ctoggle-' + taskId);
+  if (btn) btn.innerHTML = `💬 ${t.comments.length > 0 ? t.comments.length : 'Add'}`;
+}
 
 // ─── Init ─────────────────────────────────────────────────
 renderTasks();
